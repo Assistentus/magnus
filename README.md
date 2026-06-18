@@ -1,5 +1,5 @@
 
-```markdown
+
 # magnus
 
 **magnus** is an experimental Python library for the computational analysis of discrete sequences and natural language using non-commutative **Magnus algebras** and the homological theory of **$fr$-codes**.
@@ -35,7 +35,7 @@ To install the library locally in editable development mode:
 git clone https://github.com/YourUsername/magnus.git
 cd magnus
 pip install -e .
-```
+
 
 ---
 
