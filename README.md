@@ -32,7 +32,7 @@ The mathematical framework of this library is an algorithmic implementation of t
 To install the library locally in editable development mode:
 
 ```bash
-git clone https://github.com/YourUsername/magnus.git
+git clone https://github.com/Assistentus/magnus.git
 cd magnus
 pip install -e .
 
