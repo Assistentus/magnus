@@ -1,5 +1,10 @@
 # magnus
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21247825.svg)](https://doi.org/10.5281/zenodo.21247825)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![License](https://img.shields.io/badge/license-AGPL--3.0-green)
+
+
 **magnus** is an experimental Python library for the computational analysis of discrete sequences and multidimensional time series using non-commutative Magnus algebras and the homological theory of $fr$-codes (Ivanov, Mikhailov, Pavutnitskiy).
 
 The library provides a methodology to map sequential data into a finitely presented group $G = \langle V \mid R \rangle$, where a finite alphabet of discrete symbols acts as the generating set $V$, and their observed contextual or temporal transitions define the relations $R$. Using the Magnus expansion in free group rings, it constructs sparse boundary matrices associated with specific $fr$-codes (e.g., $rr+frf$), whose derived limits are isomorphic to integral group homologies (e.g., $H_3(G)$), evaluating their exact ranks over the finite field $\mathbb{Z}_p$.
