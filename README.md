@@ -2,9 +2,11 @@
 
 # magnus
 
-**magnus** is an experimental Python library for the computational analysis of discrete sequences and natural language using non-commutative **Magnus algebras** and the homological theory of **$fr$-codes**.
+**magnus** is an experimental Python library for the computational analysis of discrete sequences using non-commutative Magnus algebras and the homological theory of fr-codes (Ivanov, Mikhailov, Pavutnitskiy).
 
-Instead of treating sequences as continuous metric vectors, this library models a corpus as a finitely presented group $G = \langle V \mid R \rangle$, where a selected vocabulary of tokens acts as free generators ($V$) and sequences act as relations ($R$). By utilizing the Magnus expansion in free group rings, the library constructs sparse boundary matrices corresponding to the $H_2$ and $H_3$ group homology invariants, computing the exact integer dimensions of the resulting quotient algebras.
+The library models sequential data as a finitely presented group G = ⟨V | R⟩, where tokens act as generators (V) and their contextual relations form the relators (R). Using the Magnus expansion in free group rings, it constructs sparse boundary matrices for H₂ and H₃ group homology and computes exact ranks over Z_p.
+
+Current focus: detecting structural changes in multidimensional time series (sensor data, logs) through the evolution of homological invariants. Experimental — under active development.
 
 ---
 
