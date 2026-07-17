@@ -74,7 +74,7 @@ class FRCodeRegistry:
 
     @staticmethod
     def get_Tor(magnus_alg: MagnusAlgebra, r_generators: List[Dict[int, int]]) -> csr_matrix:
-        return FRCodeRegistry.build_code(magnus_alg, r_generators, ["rr", "fff"])
+        return FRCodeRegistry.build_code(magnus_alg, r_generators, ["rff", "frr"])
     
     # ========================================================================
     # СИНОНИМЫ (АЛИАСЫ) ДЛЯ СОВМЕСТИМОСТИ С ТЕСТАМИ И ЭКСПЕРИМЕНТАМИ
