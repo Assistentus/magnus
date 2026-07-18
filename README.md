@@ -84,7 +84,7 @@ print(f"Factor dimension:     {results['dim_factor']} (strictly >= K)")
 This open-source package provides a pure Python implementation of the sparse Gaussian elimination solver. It is mathematically exact and suitable for small-to-medium datasets (up to ~100 defining relations) for research, verification, and educational purposes. Processing large, dense sequences generates heavy algebraic systems that may exceed Python's optimal memory and execution constraints.
 
 ## License
-This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.
+This project is licensed under the **MIT**.
 
 ## Citation
 If you use Magnus in scientific work, please cite:
