@@ -1,6 +1,6 @@
 # magnus
 
-[[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21247825.svg)](https://doi.org/10.5281/zenodo.21247825)](https://doi.org/10.5281/zenodo.21247825)
+<a href="https://doi.org/10.5281/zenodo.21247825"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.21247825.svg" alt="DOI"></a>
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
