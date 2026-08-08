@@ -3,9 +3,27 @@ from scipy.sparse import coo_matrix, csr_matrix
 from typing import List, Dict, Tuple
 from .magnus import MagnusAlgebra
 
+def _get_basis(magnus_alg, idx):
+    """Совместимость: работает со списком, методом и property"""
+    attr = magnus_alg.idx_to_basis
+    if callable(attr):
+        return attr(idx)
+    else:
+        return attr[idx]
+
+def _get_idx(magnus_alg, basis):
+    """Совместимость: работает со словарем, методом и property"""
+    attr = magnus_alg.basis_to_idx
+    if callable(attr):
+        return attr(basis)
+    else:
+        return attr[basis]
+
+
 class FRCodeRegistry:
     """
     Универсальный генератор матриц для fr-кодов.
+    Совместим с MagnusAlgebra (старой и новой).
     """
     
     @staticmethod
@@ -16,16 +34,12 @@ class FRCodeRegistry:
         current_row = 0
         
         def multiply_right(gen_list, right_gens):
-            """
-            gen_list: список списков [(basis, coeff), ...] — каждый элемент = одна строка
-            right_gens: список dict {idx: coeff} — r-генераторы
-            """
             new_gen_list = []
-            for gen in gen_list:  # gen = одна строка = список (basis, coeff)
-                new_gen = []  # новый список для этой строки
+            for gen in gen_list:
+                new_gen = []
                 for r_dict in right_gens:
                     for idx_r, coeff_r in r_dict.items():
-                        basis_r = magnus_alg.idx_to_basis[idx_r]
+                        basis_r = _get_basis(magnus_alg, idx_r)  # ← СОВМЕСТИМОСТЬ
                         for basis_curr, coeff_curr in gen:
                             if len(basis_curr) + len(basis_r) <= max_deg:
                                 new_basis = basis_curr + basis_r
@@ -50,55 +64,50 @@ class FRCodeRegistry:
             if not monomial:
                 continue
             
-            # Начальные генераторы для монома
             if monomial[0] == 'r':
-                # Каждое отношение = ОДНА строка = список всех (basis, coeff) из expand_word
                 current_gens = []
                 for r_dict in r_generators:
                     gen = []
                     for idx, coeff in r_dict.items():
-                        gen.append((magnus_alg.idx_to_basis[idx], coeff))
+                        gen.append((_get_basis(magnus_alg, idx), coeff))  # ← СОВМЕСТИМОСТЬ
                     if gen:
                         current_gens.append(gen)
             elif monomial[0] == 'f':
-                # Каждый f-генератор = одна строка с одним элементом
                 current_gens = [[((a,), 1)] for a in range(K)]
             else:
                 raise ValueError(f"Недопустимый символ: {monomial[0]}")
             
-            # Применяем оставшиеся буквы
             for char in monomial[1:]:
                 if char == 'r':
                     current_gens = multiply_right(current_gens, r_generators)
                 elif char == 'f':
                     current_gens = multiply_by_f_right(current_gens)
             
-            # Добавляем строки в матрицу
             for gen in current_gens:
                 for basis, coeff in gen:
                     rows.append(current_row)
-                    cols.append(magnus_alg.basis_to_idx[basis])
+                    cols.append(_get_idx(magnus_alg, basis))  # ← СОВМЕСТИМОСТЬ
                     data.append(coeff)
                 current_row += 1
 
         return coo_matrix((data, (rows, cols)), shape=(current_row, magnus_alg.dim), dtype=np.int32).tocsr()
 
     @staticmethod
-    def get_H2_G_Gab(magnus_alg: MagnusAlgebra, r_generators: List[Dict[int, int]]) -> csr_matrix:
+    def get_H2_G_Gab(magnus_alg, r_generators):
         return FRCodeRegistry.build_code(magnus_alg, r_generators, ["rr", "frf", "rff"])
 
     @staticmethod
-    def get_H3_G(magnus_alg: MagnusAlgebra, r_generators: List[Dict[int, int]]) -> csr_matrix:
+    def get_H3_G(magnus_alg, r_generators):
         return FRCodeRegistry.build_code(magnus_alg, r_generators, ["rr", "frf"])
 
     @staticmethod
-    def get_Tor(magnus_alg: MagnusAlgebra, r_generators: List[Dict[int, int]]) -> csr_matrix:
+    def get_Tor(magnus_alg, r_generators):
         return FRCodeRegistry.build_code(magnus_alg, r_generators, ["rff", "frr"])
     
     @staticmethod
-    def build_rr_frf_rff(magnus_alg: MagnusAlgebra, r_generators: List[Dict[int, int]]) -> csr_matrix:
+    def build_rr_frf_rff(magnus_alg, r_generators):
         return FRCodeRegistry.get_H2_G_Gab(magnus_alg, r_generators)
 
     @staticmethod
-    def build_rr_frf(magnus_alg: MagnusAlgebra, r_generators: List[Dict[int, int]]) -> csr_matrix:
+    def build_rr_frf(magnus_alg, r_generators):
         return FRCodeRegistry.get_H3_G(magnus_alg, r_generators)
