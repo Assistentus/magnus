@@ -1,7 +1,9 @@
 # magnus
 
+[![Tests](https://github.com/Assistentus/magnus/actions/workflows/test.yml/badge.svg)](https://github.com/Assistentus/magnus/actions/workflows/test.yml)
 <a href="https://doi.org/10.5281/zenodo.21247825"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.21247825.svg" alt="DOI"></a>
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+[![Rust 2024](https://img.shields.io/badge/rust-2024_edition-DEA584.svg?logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
 
