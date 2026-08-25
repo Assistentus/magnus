@@ -34,18 +34,26 @@ class FRCodeRegistry:
         rows, cols, data = [], [], []
         current_row = 0
         
+        # Безопасные хелперы для вызова (поддерживают и методы (), и словари [])
+        def get_basis(idx):
+            return magnus_alg.idx_to_basis(idx) if callable(magnus_alg.idx_to_basis) else magnus_alg.idx_to_basis[idx]
+            
+        def get_idx(basis):
+            return magnus_alg.basis_to_idx(basis) if callable(magnus_alg.basis_to_idx) else magnus_alg.basis_to_idx[basis]
+
         def multiply_right(gen_list, right_gens):
             new_gen_list = []
             for gen in gen_list:
                 new_gen = []
                 for r_dict in right_gens:
                     for idx_r, coeff_r in r_dict.items():
-                        basis_r = magnus_alg.idx_to_basis[idx_r]
+                        basis_r = get_basis(idx_r)  # <--- ИСПРАВЛЕНО
                         for basis_curr, coeff_curr in gen:
                             if len(basis_curr) + len(basis_r) <= max_deg:
                                 new_basis = basis_curr + basis_r
                                 new_coeff = (coeff_curr * coeff_r) % P
-                                new_gen.append((new_basis, new_coeff))
+                                if new_coeff != 0:
+                                    new_gen.append((new_basis, new_coeff))
                 if new_gen:
                     new_gen_list.append(new_gen)
             return new_gen_list
@@ -71,7 +79,8 @@ class FRCodeRegistry:
                 for r_dict in r_generators:
                     gen = []
                     for idx, coeff in r_dict.items():
-                        gen.append((magnus_alg.idx_to_basis[idx], coeff % P))
+                        if (coeff % P) != 0:
+                            gen.append((get_basis(idx), coeff % P))  # <--- ИСПРАВЛЕНО
                     if gen:
                         current_gens.append(gen)
             elif monomial[0] == 'f':
@@ -87,9 +96,11 @@ class FRCodeRegistry:
             
             for gen in current_gens:
                 for basis, coeff in gen:
-                    rows.append(current_row)
-                    cols.append(magnus_alg.basis_to_idx[basis])
-                    data.append(coeff % P)
+                    c_mod = coeff % P
+                    if c_mod != 0:
+                        rows.append(current_row)
+                        cols.append(get_idx(basis))  # <--- ИСПРАВЛЕНО
+                        data.append(c_mod)
                 current_row += 1
 
         return coo_matrix((data, (rows, cols)), shape=(current_row, magnus_alg.dim), dtype=np.int64).tocsr()
