@@ -52,6 +52,7 @@ The mathematical soundness of the implementation is verified using strict algebr
 To run the algebraic verification suite:
 
 ```bash
+pip install pytest
 python -m pytest tests/test_core.py -v -s
 ```
 
