@@ -1,0 +1,72 @@
+# Конфигурация Predictor для ГТЭА-007
+# ======================================
+
+predictor:
+  name: "KADVI-007"
+  description: "Газотурбинная установка 007"
+
+  warmup_hours: 48
+  points_per_hour: 3600
+
+  fast:
+    enabled: true
+    window_hours: 6
+    baseline_hours: 24
+    min_score: 5
+
+    rules:
+      - sensor: "V gen"
+        threshold: 0.05
+        direction: "up"
+        weight: 3
+
+      - sensor: "V red"
+        threshold: 0.05
+        direction: "up"
+        weight: 2
+
+      - sensor: "Pgaza na vihod"
+        threshold: 0.05
+        direction: "any"
+        weight: 2
+
+      - sensor: "t vozd na vh v GTD"
+        threshold: 0.03
+        direction: "any"
+        weight: 1
+
+      - sensor: "N tk"
+        threshold: 0.02
+        direction: "down"
+        weight: 2
+
+  slow:
+    enabled: true
+    window_days: 10
+    min_score: 4
+
+    rules:
+      - sensor: "V red"
+        threshold: 0.15
+        direction: "up"
+        weight: 3
+
+      - sensor: "V gen"
+        threshold: 0.10
+        direction: "up"
+        weight: 2
+
+      - sensor: "t gaz na vih iz GTD"
+        threshold: 0.05
+        direction: "down"
+        weight: 2
+
+      - sensor: "t vozd na vh v GTD"
+        threshold: 0.10
+        direction: "up"
+        weight: 1
+
+  urgency:
+    critical_score: 7
+    high_score: 5
+    medium_score: 3

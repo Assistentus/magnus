@@ -1,0 +1,98 @@
+# Конфигурация ГТЭА-007
+name: "KADVI-007"
+description: "Газотурбинная установка 007"
+
+sources:
+  - path: "/home/m/Документы/лобачевский/турбо/KADVI/КАДВИ/КАДВИ/007"
+    pattern: "*.csv"
+    format: "auto"
+
+sensor_sets:
+  minimal:
+    columns:
+      - "N tk"
+      - "Qk/g"
+  
+  core:
+    columns:
+      - "N tk"
+      - "Qk/g"
+      - "t gaz na vih iz GTD"
+      - "t masla na vihode iz GTD"
+  
+  default:
+    columns:
+      - "N tk"
+      - "Qk/g"
+      - "V red"
+      - "V gen"
+      - "t gaz na vih iz GTD"
+      - "t masla na vihode iz GTD"
+      - "Pm v/vh"
+  
+  extended:
+    columns:
+      - "N tk"
+      - "Qk/g"
+      - "Pm v/vh"
+      - "Pgaza na vihod"
+      - "P gaza na vhode d dozator"
+      - "V red"
+      - "V gen"
+      - "V sau"
+      - "t gaz na vih iz GTD"
+      - "t masla na vihode iz GTD"
+      - "t vozd na vh v GTD"
+      - "Ugol HD"
+  
+  vibration:
+    columns:
+      - "V red"
+      - "V gen"
+      - "V tk"
+      - "V startera"
+      - "V obg mufti"
+      - "V sau"
+  
+  temperature:
+    columns:
+      - "t gaz na vih iz GTD"
+      - "t masla na vihode iz GTD"
+      - "t vozd na vh v GTD"
+      - "t gaza na vihode iz doz"
+  
+  fuel:
+    columns:
+      - "Qk/g"
+      - "Pgaza na vihod"
+      - "P gaza na vhode d dozator"
+  
+  electric:
+    columns:
+      - "I(A)"
+      - "I(B)"
+      - "I(C)"
+      - "U(A)"
+      - "U(B)"
+      - "U(C)"
+      - "P(A)"
+      - "P(B)"
+      - "P(C)"
+      - "kVAr"
+      - "kVA"
+      - "cos ?"
+
+events:
+  "20260303": "Остановка"
+  "20260312": "Остановка"
+  "20260402": "Остановка"
+  "20260407": "Остановка 11ч"
+  "20260408": "Остановка 13.7ч"
+  "20260422": "АНОМАЛИЯ"
+  "20260423": "Остановка"
+
+processor:
+  alpha: 0.05
+  n_sigma: 1.5
+  min_count: 2
+  degree: 2

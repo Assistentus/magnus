@@ -1,12 +1,79 @@
+# -*- coding: utf-8 -*-
 """
-fr_lib: Вычислительная гомологическая алгебра для дискретных последовательностей.
-Основано на теории fr-кодов (Иванов, Михайлов, Павутницкий, 2020).
+magnus: Вычислительная гомологическая алгебра.
+
+Базовые компоненты:
+    MagnusAlgebra    — алгебра Магнуса
+    FRCodeRegistry   — реестр fr-кодов
+    HomologySolver   — решатель гомологий
+    TextPresentation — построение копредставлений из текста
+
+Streaming-ядро:
+    StreamingMagnus    — низкоуровневый процессор (Rust)
+    StreamingPipeline  — универсальный pipeline
+    UniversalRunner    — runner по YAML-конфигу
+    AutoDetectLoader   — загрузчик с автоопределением формата
+    FileSource         — источник данных из файлов
+    StreamSource       — базовый класс источника
+    load_config        — загрузка YAML-конфига
+    create_config_template — создать шаблон конфига
 """
+
+# ================================================================
+# БАЗОВЫЕ КОМПОНЕНТЫ
+# ================================================================
 
 from .presentation import TextPresentation
 from .magnus import MagnusAlgebra
 from .codes import FRCodeRegistry
 from .solver import HomologySolver
 
-__version__ = "0.1.0"
-__all__ = ["TextPresentation", "MagnusAlgebra", "FRCodeRegistry", "HomologySolver"]
+
+# ================================================================
+# STREAMING-ЯДРО
+# ================================================================
+
+from .streaming import (
+    # Rust
+    StreamingMagnus,
+    
+    # Ядро
+    StreamingPipeline,
+    UniversalRunner,
+    
+    # Конфиг
+    load_config,
+    create_config_template,
+    
+    # Загрузчики
+    AutoDetectLoader,
+    
+    # Источники
+    FileSource,
+    StreamSource,
+)
+
+
+# ================================================================
+# ВЕРСИЯ И ЭКСПОРТ
+# ================================================================
+
+__version__ = "0.2.0"
+
+__all__ = [
+    # Базовые
+    "TextPresentation",
+    "MagnusAlgebra",
+    "FRCodeRegistry",
+    "HomologySolver",
+    
+    # Streaming
+    "StreamingMagnus",
+    "StreamingPipeline",
+    "UniversalRunner",
+    "load_config",
+    "create_config_template",
+    "AutoDetectLoader",
+    "FileSource",
+    "StreamSource",
+]
