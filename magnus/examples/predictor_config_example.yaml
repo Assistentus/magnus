@@ -1,0 +1,75 @@
+# predictor_config.yaml
+predictor:
+  # Общие настройки
+  warmup_hours: 48          # Игнорировать первые N часов
+  
+  # FAST-уровень (1-6 часов)
+  fast:
+    enabled: true
+    window_hours: 6         # Окно сравнения
+    baseline_hours: 24      # Базовая линия
+    min_score: 5            # Минимальный score
+    
+    rules:
+      # Каждое правило:
+      # sensor    — имя датчика (точное) или regex (^V.*)
+      # threshold — порог (0.05 = 5%)
+      # direction — up | down | any
+      # weight    — вес (1-5)
+      - sensor: "V gen"
+        threshold: 0.05
+        direction: "up"
+        weight: 3
+      
+      - sensor: "V red"
+        threshold: 0.05
+        direction: "up"
+        weight: 2
+      
+      - sensor: "Pgaza na vihod"
+        threshold: 0.05
+        direction: "any"
+        weight: 2
+      
+      - sensor: "t vozd na vh v GTD"
+        threshold: 0.03
+        direction: "any"
+        weight: 1
+      
+      - sensor: "N tk"
+        threshold: 0.02
+        direction: "down"
+        weight: 2
+  
+  # SLOW-уровень (5-13 дней)
+  slow:
+    enabled: true
+    window_days: 10
+    min_score: 4
+    
+    rules:
+      - sensor: "V red"
+        threshold: 0.15
+        direction: "up"
+        weight: 3
+      
+      - sensor: "V gen"
+        threshold: 0.10
+        direction: "up"
+        weight: 2
+      
+      - sensor: "t gaz na vih iz GTD"
+        threshold: 0.05
+        direction: "down"
+        weight: 2
+      
+      - sensor: "t vozd na vh v GTD"
+        threshold: 0.10
+        direction: "up"
+        weight: 1
+  
+  # Уровни срочности
+  urgency:
+    critical_score: 7       # score >= 7 → critical
+    high_score: 5           # score >= 5 → high
+    medium_score: 3         # score >= 3 → medium
