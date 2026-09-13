@@ -12,7 +12,7 @@ else:
 
 setup(
     name="magnus",
-    version="0.2.0",                                    # ← версия
+    version="0.3.0",
     author="Maksim Khotinsky",
     description="A Python/Rust framework for non-commutative structural analysis of discrete sequences via fr-codes.",
     long_description=long_description,
@@ -33,6 +33,7 @@ setup(
     install_requires=[
         "numpy>=1.20.0",
         "scipy>=1.8.0",
+        "pandas>=1.5.0",
     ],
 
     python_requires=">=3.12",
