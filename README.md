@@ -89,6 +89,16 @@ print(f"Factor dimension:     {results['dim_factor']} (strictly >= K)")
 ## Note on Performance
 This open-source package provides a pure Python implementation of the sparse Gaussian elimination solver. It is mathematically exact and suitable for small-to-medium datasets (up to ~100 defining relations) for research, verification, and educational purposes. Processing large, dense sequences generates heavy algebraic systems that may exceed Python's optimal memory and execution constraints.
 
+## Research Applications
+
+`magnus` was designed to solve practical problems in Data Science and Systems Engineering. It serves as the core mathematical computational engine in the following research:
+
+* **"Algebraic Prognostics via fr-Codes: Tracking Truncated Factor Dimensions in Turbofan Degradation"**
+  * *Description:* The library was utilized to map multivariate sensor time series from the NASA CMAPSS dataset into finitely presented groups, tracking discrete drops in the truncated factor dimension to predict engine failure without neural networks.
+  * *Preprint:* [Research Square (DOI: 10.21203/rs.3.rs-10792595/v1)](https://doi.org/10.21203/rs.3.rs-10792595/v1)
+
+*(If you use `magnus` in your research or publications, feel free to open a PR to add your paper to this list!)*
+
 ## License
 This project is licensed under the **GNU Affero General Public License v3**.
 
