@@ -34,6 +34,7 @@ setup(
         "numpy>=1.20.0",
         "scipy>=1.8.0",
         "pandas>=1.5.0",
+        "pyyaml>=6.0",
     ],
 
     python_requires=">=3.12",
