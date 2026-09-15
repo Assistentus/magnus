@@ -239,34 +239,81 @@ impl<'a> FrCodeBuilder<'a> {
         out
     }
 
-    /// COO → CSR с сортировкой по (row, col).
+    /// COO → CSR с объединением дубликатов `(row, col)` по модулю p.
     fn coo_to_csr(
         &self,
         rows: &[i64],
         cols: &[i64],
         data: &[i64],
         n_rows: usize,
-        n_cols: usize,
+        _n_cols: usize,
     ) -> (Vec<i64>, Vec<i64>, Vec<i64>) {
         let nnz = rows.len();
+        if nnz == 0 {
+            return (vec![0i64; n_rows + 1], Vec::new(), Vec::new());
+        }
+
+        // 1. Сортируем индексы по (row, col).
         let mut order: Vec<usize> = (0..nnz).collect();
         order.sort_unstable_by_key(|&i| (rows[i], cols[i]));
 
-        let mut indptr = vec![0i64; n_rows + 1];
+        let p128 = self.p as u128;
+
+        // 2. Проходим по отсортированным, объединяя дубликаты.
+        let mut indices: Vec<i64> = Vec::with_capacity(nnz);
+        let mut new_data: Vec<i64> = Vec::with_capacity(nnz);
+        let mut indptr: Vec<i64> = vec![0i64; n_rows + 1];
+
+        let mut prev_row: i64 = -1;
+        let mut prev_col: i64 = -1;
+
         for &i in &order {
-            indptr[rows[i] as usize + 1] += 1;
-        }
-        for i in 1..=n_rows {
-            indptr[i] += indptr[i - 1];
+            let r = rows[i];
+            let c = cols[i];
+            let v = (data[i] as u64) % self.p;
+
+            if v == 0 {
+                continue;
+            }
+
+            // Обновляем indptr при смене строки.
+            if r != prev_row {
+                // Закрываем все строки до r включительно.
+                // indptr[k+1] = количество элементов в строках 0..=k.
+                for k in (prev_row + 1)..=r {
+                    if (k as usize) < n_rows {
+                        indptr[k as usize + 1] = indices.len() as i64;
+                    }
+                }
+                prev_row = r;
+                prev_col = -1;
+            }
+
+            // Складываем с предыдущей записью, если тот же столбец.
+            if c == prev_col {
+                let prev = new_data.last_mut().unwrap();
+                let summed = ((*prev as u128 + v as u128) % p128) as i64;
+                if summed == 0 {
+                    indices.pop();
+                    new_data.pop();
+                } else {
+                    *prev = summed;
+                }
+            } else {
+                indices.push(c);
+                new_data.push(v as i64);
+                prev_col = c;
+            }
         }
 
-        let mut indices = vec![0i64; nnz];
-        let mut new_data = vec![0i64; nnz];
-        for (pos, &i) in order.iter().enumerate() {
-            indices[pos] = cols[i];
-            new_data[pos] = data[i];
+        // 3. Закрываем оставшиеся строки.
+        for k in (prev_row + 1)..n_rows as i64 {
+            indptr[k as usize + 1] = indices.len() as i64;
         }
-        let _ = n_cols;
+        if (prev_row + 1) as usize <= n_rows {
+            indptr[n_rows] = indices.len() as i64;
+        }
+
         (indptr, indices, new_data)
     }
 }
