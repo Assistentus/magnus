@@ -61,9 +61,9 @@ def test_adams_e1_page_differential():
     ТЕСТ: Расчет колонок E_1^{0, q} и E_1^{1, q} первого листа E_1
     косимплициального комплекса B(c) спектральной последовательности (Thm 2.12, Иванов и др., 2020).
     """
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("🌌 СБОРКА 1-ГО ЛИСТА E_1 СПЕКТРАЛЬНОЙ ПОСЛЕДОВАТЕЛЬНОСТИ (B(c) COMPLEX)")
-    print("="*80)
+    print("=" * 80)
 
     # Представление циклической группы Z_3 = < x | x^3 >
     K = 1
@@ -72,8 +72,6 @@ def test_adams_e1_page_differential():
 
     # --- ЭТАП 1: Нулевая колонка E_1^{0, q} = (f/c)(c) ---
     magnus_0 = MagnusAlgebra(K=K, degree=3)
-
-    # ← ИЗМЕНЕНО: убрано gens_0 = [magnus_0.expand_word(r) for r in relations_R]
     c_matrix_0 = FRCodeRegistry.build_rr_frf(magnus_0, relations_R)
 
     solver = HomologySolver(p=10**9 + 7)
@@ -85,8 +83,6 @@ def test_adams_e1_page_differential():
     # --- ЭТАП 2: Первая колонка E_1^{1, q} = (f/c)(c ⊔ c) ---
     K_coprod, rel_coprod = build_coproduct_presentation(relations_R, K)
     magnus_1 = MagnusAlgebra(K=K_coprod, degree=3)
-
-    # ← ИЗМЕНЕНО: убрано gens_1 = [magnus_1.expand_word(r) for r in rel_coprod]
     c_matrix_1 = FRCodeRegistry.build_rr_frf(magnus_1, rel_coprod)
 
     res_1 = solver.evaluate(c_matrix_1, dim_f=magnus_1.dim)
@@ -99,7 +95,7 @@ def test_adams_e1_page_differential():
     assert res_0['dim_factor'] > 0
     assert res_1['dim_factor'] > res_0['dim_factor']
     print("\n   [УСПЕХ] Первый лист E_1 спектральной последовательности собран и верифицирован!")
-    print("="*80 + "\n")
+    print("=" * 80 + "\n")
 
 
 if __name__ == "__main__":
