@@ -1,9 +1,9 @@
-# Конфигурация ГТЭА-007
-name: "KADVI-007"
-description: "Газотурбинная установка 007"
+# example 
+name: "ХХХХ"
+description: "Газотурбинная установка"
 
 sources:
-  - path: "/home/m/Документы/лобачевский/турбо/KADVI/КАДВИ/КАДВИ/007"
+  - path: "/ххх/ххх/
     pattern: "*.csv"
     format: "auto"
 
