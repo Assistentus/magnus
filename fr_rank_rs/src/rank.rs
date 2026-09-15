@@ -1,5 +1,4 @@
-//! Внутренний решатель ранга над Z_p (общий для batch и PyO3-обёртки).
-
+//! Внутренний решатель ранга над Z_p.
 
 #[inline]
 fn mod_pow(mut base: u64, mut exp: u64, modulus: u64) -> u64 {
@@ -61,6 +60,7 @@ pub fn compute_rank_csr(
     let mut active_start = 0usize;
 
     while active_start < rows.len() {
+        // Ищем строку с минимальной длиной среди активных.
         let mut best_idx = active_start;
         let mut min_len = rows[active_start].len();
         for i in (active_start + 1)..rows.len() {
@@ -82,6 +82,7 @@ pub fn compute_rank_csr(
         rows.swap(active_start, best_idx);
         let pivot_row = std::mem::take(&mut rows[active_start]);
 
+        // Ищем ведущий столбец.
         let mut pivot_c: Option<usize> = None;
         for &(c, _) in &pivot_row {
             if !pivot_cols.contains(&c) {
@@ -110,6 +111,8 @@ pub fn compute_rank_csr(
 
         let p128 = p as u128;
 
+        // Исключаем столбец pivot_c из остальных активных строк.
+        // Вместо peekable() используем явные индексы.
         for i in (active_start + 1)..rows.len() {
             if rows[i].is_empty() {
                 continue;
@@ -119,59 +122,65 @@ pub fn compute_rank_csr(
                 Err(_) => continue,
             };
 
+            let old_row = std::mem::take(&mut rows[i]);
             let mut new_row: Vec<(usize, u64)> =
-                Vec::with_capacity(rows[i].len() + pivot_row.len());
+                Vec::with_capacity(old_row.len() + pivot_row.len());
 
-            let mut it_i = rows[i].iter().peekable();
-            let mut it_p = pivot_row.iter().peekable();
+            let mut a = 0usize; // указатель по old_row
+            let mut b = 0usize; // указатель по pivot_row
 
-            // FIX: используем .copied() и Some((ci, vi)) без &,
-            //      чтобы получить значения, а не ссылки.
-            while it_i.peek().is_some() || it_p.peek().is_some() {
-                match (it_i.peek().copied(), it_p.peek().copied()) {
-                    (Some((ci, vi)), Some((cp, vp))) => {
-                        if ci < cp {
-                            new_row.push((ci, vi));
-                            it_i.next();
-                        } else if ci > cp {
-                            if cp != pivot_c {
-                                let nv = (p128
-                                    - (factor as u128 * vp as u128) % p128)
-                                    % p128;
-                                if nv != 0 {
-                                    new_row.push((cp, nv as u64));
-                                }
-                            }
-                            it_p.next();
-                        } else {
-                            if ci != pivot_c {
-                                let nv = ((vi as u128 + p128
-                                    - (factor as u128 * vp as u128) % p128)
-                                    % p128) as u64;
-                                if nv != 0 {
-                                    new_row.push((ci, nv));
-                                }
-                            }
-                            it_i.next();
-                            it_p.next();
+            while a < old_row.len() || b < pivot_row.len() {
+                let (col, val) = if a >= old_row.len() {
+                    // Остались только элементы pivot_row.
+                    let (cp, vp) = pivot_row[b];
+                    b += 1;
+                    if cp == pivot_c {
+                        continue;
+                    }
+                    let nv = (p128 - (factor as u128 * vp as u128) % p128) % p128;
+                    (cp, nv as u64)
+                } else if b >= pivot_row.len() {
+                    // Остались только элементы old_row.
+                    let (ci, vi) = old_row[a];
+                    a += 1;
+                    if ci == pivot_c {
+                        continue;
+                    }
+                    (ci, vi)
+                } else {
+                    // Оба указателя в диапазоне.
+                    let (ci, vi) = old_row[a];
+                    let (cp, vp) = pivot_row[b];
+
+                    if ci < cp {
+                        a += 1;
+                        if ci == pivot_c {
+                            continue;
                         }
-                    }
-                    (Some((ci, vi)), None) => {
-                        new_row.push((ci, vi));
-                        it_i.next();
-                    }
-                    (None, Some((cp, vp))) => {
-                        if cp != pivot_c {
-                            let nv = (p128
-                                - (factor as u128 * vp as u128) % p128)
-                                % p128;
-                            if nv != 0 {
-                                new_row.push((cp, nv as u64));
-                            }
+                        (ci, vi)
+                    } else if ci > cp {
+                        b += 1;
+                        if cp == pivot_c {
+                            continue;
                         }
-                        it_p.next();
+                        let nv = (p128 - (factor as u128 * vp as u128) % p128) % p128;
+                        (cp, nv as u64)
+                    } else {
+                        // ci == cp
+                        a += 1;
+                        b += 1;
+                        if ci == pivot_c {
+                            continue;
+                        }
+                        let nv = ((vi as u128 + p128
+                            - (factor as u128 * vp as u128) % p128) % p128)
+                            as u64;
+                        (ci, nv)
                     }
-                    (None, None) => break,
+                };
+
+                if val != 0 {
+                    new_row.push((col, val));
                 }
             }
             rows[i] = new_row;
