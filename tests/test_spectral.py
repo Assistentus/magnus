@@ -1,3 +1,4 @@
+# tests/test_spectral.py
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
@@ -42,56 +43,58 @@ def build_coproduct_presentation(relations_R: list, K: int):
     """
     K_coprod = 2 * K
     relations_coprod = []
-    
+
     # 1. Первая копия c (индексы 0..K-1)
     for r in relations_R:
         relations_coprod.append(r)
-        
+
     # 2. Вторая копия c (индексы сдвинуты на +K)
     for r in relations_R:
         shifted_r = [idx + K for idx in r]
         relations_coprod.append(shifted_r)
-        
+
     return K_coprod, relations_coprod
 
 
 def test_adams_e1_page_differential():
     """
-    ТЕСТ: Расчет колонок E_1^{0, q} и E_1^{1, q} первого листа E_1 
+    ТЕСТ: Расчет колонок E_1^{0, q} и E_1^{1, q} первого листа E_1
     косимплициального комплекса B(c) спектральной последовательности (Thm 2.12, Иванов и др., 2020).
     """
     print("\n" + "="*80)
     print("🌌 СБОРКА 1-ГО ЛИСТА E_1 СПЕКТРАЛЬНОЙ ПОСЛЕДОВАТЕЛЬНОСТИ (B(c) COMPLEX)")
     print("="*80)
-    
+
     # Представление циклической группы Z_3 = < x | x^3 >
     K = 1
     rel = [0, 0, 0]  # x^3 = 1
     relations_R = [rel]
-    
+
     # --- ЭТАП 1: Нулевая колонка E_1^{0, q} = (f/c)(c) ---
     magnus_0 = MagnusAlgebra(K=K, degree=3)
-    gens_0 = [magnus_0.expand_word(r) for r in relations_R]
-    c_matrix_0 = FRCodeRegistry.build_rr_frf(magnus_0, gens_0)
-    
+
+    # ← ИЗМЕНЕНО: убрано gens_0 = [magnus_0.expand_word(r) for r in relations_R]
+    c_matrix_0 = FRCodeRegistry.build_rr_frf(magnus_0, relations_R)
+
     solver = HomologySolver(p=10**9 + 7)
     res_0 = solver.evaluate(c_matrix_0, dim_f=magnus_0.dim)
     print(f"   * [E1^(0)] Базовое свободное пространство: {res_0['dim_f']}")
     print(f"   * [E1^(0)] Ранг базового кода c(G):          {res_0['rank_c']}")
     print(f"   * [E1^(0)] Размерность E1^(0) = (f/c)(G):      {res_0['dim_factor']}")
-    
+
     # --- ЭТАП 2: Первая колонка E_1^{1, q} = (f/c)(c ⊔ c) ---
     K_coprod, rel_coprod = build_coproduct_presentation(relations_R, K)
     magnus_1 = MagnusAlgebra(K=K_coprod, degree=3)
-    gens_1 = [magnus_1.expand_word(r) for r in rel_coprod]
-    c_matrix_1 = FRCodeRegistry.build_rr_frf(magnus_1, gens_1)
-    
+
+    # ← ИЗМЕНЕНО: убрано gens_1 = [magnus_1.expand_word(r) for r in rel_coprod]
+    c_matrix_1 = FRCodeRegistry.build_rr_frf(magnus_1, rel_coprod)
+
     res_1 = solver.evaluate(c_matrix_1, dim_f=magnus_1.dim)
     print(f"\n   * [E1^(1)] Копроизведение c ⊔ c (K'={K_coprod}):")
     print(f"   * [E1^(1)] Свободное пространство (c ⊔ c):  {res_1['dim_f']}")
     print(f"   * [E1^(1)] Ранг c(G ⊔ G):                   {res_1['rank_c']}")
     print(f"   * [E1^(1)] Размерность E1^(1) = (f/c)(G*G):    {res_1['dim_factor']}")
-    
+
     # Алгебраические проверки
     assert res_0['dim_factor'] > 0
     assert res_1['dim_factor'] > res_0['dim_factor']
