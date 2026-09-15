@@ -239,7 +239,7 @@ impl<'a> FrCodeBuilder<'a> {
         out
     }
 
-    /// COO → CSR с объединением дубликатов `(row, col)` по модулю p.
+    /// COO → CSR с объединением дубликатов (row, col) по модулю p.
     fn coo_to_csr(
         &self,
         rows: &[i64],
@@ -248,24 +248,23 @@ impl<'a> FrCodeBuilder<'a> {
         n_rows: usize,
         _n_cols: usize,
     ) -> (Vec<i64>, Vec<i64>, Vec<i64>) {
-        let nnz = rows.len();
-        if nnz == 0 {
+        // Пустая матрица.
+        if rows.is_empty() {
             return (vec![0i64; n_rows + 1], Vec::new(), Vec::new());
         }
 
         // 1. Сортируем индексы по (row, col).
-        let mut order: Vec<usize> = (0..nnz).collect();
+        let mut order: Vec<usize> = (0..rows.len()).collect();
         order.sort_unstable_by_key(|&i| (rows[i], cols[i]));
 
         let p128 = self.p as u128;
 
-        // 2. Проходим по отсортированным, объединяя дубликаты.
-        let mut indices: Vec<i64> = Vec::with_capacity(nnz);
-        let mut new_data: Vec<i64> = Vec::with_capacity(nnz);
-        let mut indptr: Vec<i64> = vec![0i64; n_rows + 1];
-
-        let mut prev_row: i64 = -1;
-        let mut prev_col: i64 = -1;
+        // 2. Объединяем дубликаты (row, col) — суммируем по модулю p.
+        //    Результат: три параллельных вектора:
+        //      uniq_rows, uniq_cols, uniq_data
+        let mut uniq_rows: Vec<i64> = Vec::with_capacity(rows.len());
+        let mut uniq_cols: Vec<i64> = Vec::with_capacity(rows.len());
+        let mut uniq_data: Vec<i64> = Vec::with_capacity(rows.len());
 
         for &i in &order {
             let r = rows[i];
@@ -276,45 +275,41 @@ impl<'a> FrCodeBuilder<'a> {
                 continue;
             }
 
-            // Обновляем indptr при смене строки.
-            if r != prev_row {
-                // Закрываем все строки до r включительно.
-                // indptr[k+1] = количество элементов в строках 0..=k.
-                for k in (prev_row + 1)..=r {
-                    if (k as usize) < n_rows {
-                        indptr[k as usize + 1] = indices.len() as i64;
+            // Если последняя запись имеет тот же (row, col) — складываем.
+            if let (Some(&last_r), Some(&last_c)) =
+                (uniq_rows.last(), uniq_cols.last())
+            {
+                if last_r == r && last_c == c {
+                    let prev = uniq_data.last_mut().unwrap();
+                    let summed =
+                        ((*prev as u128 + v as u128) % p128) as i64;
+                    if summed == 0 {
+                        // Обнулилось — убираем запись.
+                        uniq_rows.pop();
+                        uniq_cols.pop();
+                        uniq_data.pop();
+                    } else {
+                        *prev = summed;
                     }
+                    continue;
                 }
-                prev_row = r;
-                prev_col = -1;
             }
 
-            // Складываем с предыдущей записью, если тот же столбец.
-            if c == prev_col {
-                let prev = new_data.last_mut().unwrap();
-                let summed = ((*prev as u128 + v as u128) % p128) as i64;
-                if summed == 0 {
-                    indices.pop();
-                    new_data.pop();
-                } else {
-                    *prev = summed;
-                }
-            } else {
-                indices.push(c);
-                new_data.push(v as i64);
-                prev_col = c;
-            }
+            uniq_rows.push(r);
+            uniq_cols.push(c);
+            uniq_data.push(v as i64);
         }
 
-        // 3. Закрываем оставшиеся строки.
-        for k in (prev_row + 1)..n_rows as i64 {
-            indptr[k as usize + 1] = indices.len() as i64;
+        // 3. Строим indptr из uniq_rows.
+        let mut indptr = vec![0i64; n_rows + 1];
+        for &r in &uniq_rows {
+            indptr[r as usize + 1] += 1;
         }
-        if (prev_row + 1) as usize <= n_rows {
-            indptr[n_rows] = indices.len() as i64;
+        for i in 1..=n_rows {
+            indptr[i] += indptr[i - 1];
         }
 
-        (indptr, indices, new_data)
+        (indptr, uniq_cols, uniq_data)
     }
 }
 
