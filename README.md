@@ -104,12 +104,11 @@ This project is licensed under the **GNU Affero General Public License v3**.
 
 ## Citation
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22764569.svg)](https://doi.org/10.5281/zenodo.22764569)
-
 If you use Magnus in scientific work, please cite:
 
-**Khotinsky, M. (2026).** *Magnus (v0.3.0).* Zenodo. https://doi.org/10.5281/zenodo.22764569
+> Khotinsky, M. (2026). *Magnus (v0.3.0).* Zenodo.  
+> https://doi.org/10.5281/zenodo.22764569
 
-For the latest version of the project, you may use the concept DOI:
+For the latest version of the project, use the concept DOI:
 
-**https://doi.org/10.5281/zenodo.21247824**
+> https://doi.org/10.5281/zenodo.21247824
