@@ -103,6 +103,13 @@ This open-source package provides a pure Python implementation of the sparse Gau
 This project is licensed under the **GNU Affero General Public License v3**.
 
 ## Citation
+
+[svg](https://github.com/Assistentus/magnus#citation)
+
 If you use Magnus in scientific work, please cite:
 
-**Khotinsky, M. (2026).** *Magnus (v0.1.0)*. Zenodo. https://doi.org/10.5281/zenodo.21247825
+**Khotinsky, M. (2026).** *Magnus (v0.3.0).* Zenodo. https://doi.org/10.5281/zenodo.22764569
+
+For the latest version of the project, you may use the concept DOI:
+
+**https://doi.org/10.5281/zenodo.21247824**
