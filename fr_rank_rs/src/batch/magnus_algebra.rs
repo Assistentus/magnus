@@ -18,7 +18,9 @@ pub struct MagnusBasis {
     degree: usize,
     /// `offsets[d]` — начало диапазона индексов степени `d`.
     /// Длина `degree + 1`, `offsets[0] = 0`.
-    offsets: Vec<u64>,
+    /// `pub(crate)` — нужно для `fr_code.rs`, который обращается
+    /// к этому полю из другого модуля того же крейта.
+    pub(crate) offsets: Vec<u64>,
     /// Полная размерность: сумма `K^d` по `d=1..=degree`.
     dim: u64,
 }
@@ -78,39 +80,23 @@ impl MagnusBasis {
         if idx >= self.dim {
             return None;
         }
-        // Ищем степень: первый d, где offsets[d] > idx.
-        // offsets[0] = 0, offsets[1] = 0 → для idx=0 нужен d=1.
-        let mut d = self.degree;
+
+        // Ищем степень: единственный d, для которого
+        // offsets[d] <= idx < offsets[d+1] (или dim для d = degree).
+        let mut d: Option<usize> = None;
         for candidate in 1..=self.degree {
-            if idx < self.offsets[candidate]
-                || (candidate < self.degree && idx < self.offsets[candidate + 1])
-            {
-                d = candidate;
+            let lo = self.offsets[candidate];
+            let hi = if candidate < self.degree {
+                self.offsets[candidate + 1]
+            } else {
+                self.dim
+            };
+            if idx >= lo && idx < hi {
+                d = Some(candidate);
                 break;
             }
         }
-        // Проверка границ
-        if idx < self.offsets[d] {
-            return None;
-        }
-        if d < self.degree && idx >= self.offsets[d + 1] {
-            // индекс попал не в ту степень — ищем точнее
-            for candidate in 1..=self.degree {
-                let lo = self.offsets[candidate];
-                let hi = if candidate < self.degree {
-                    self.offsets[candidate + 1]
-                } else {
-                    self.dim
-                };
-                if idx >= lo && idx < hi {
-                    d = candidate;
-                    break;
-                }
-            }
-        }
-        if idx < self.offsets[d] {
-            return None;
-        }
+        let d = d?;
 
         let mut local = idx - self.offsets[d];
         let mut basis = vec![0usize; d];
@@ -126,9 +112,10 @@ impl MagnusBasis {
     /// Возвращает `Vec<(idx, coeff)>`, отсортированный по `idx`,
     /// без нулевых коэффициентов.
     ///
-    /// Логика: для каждой подпоследовательности слова длины `d ∈ [1, min(degree, len)]`
-    /// берётся как моном степени `d` с коэффициентом 1.
-    /// Если одинаковые мономы встречаются несколько раз — коэффициенты складываются.
+    /// Логика: для каждой подпоследовательности слова длины
+    /// `d ∈ [1, min(degree, len)]` берётся моном степени `d`
+    /// с коэффициентом 1. Если одинаковые мономы встречаются
+    /// несколько раз — коэффициенты складываются mod p.
     pub fn expand_word(&self, word: &[usize], p: u64) -> Vec<(u64, u64)> {
         if word.is_empty() {
             return Vec::new();
@@ -140,14 +127,13 @@ impl MagnusBasis {
         let m = word.len();
         let max_d = self.degree.min(m);
 
-        // Сначала копим в HashMap, потом компактифицируем.
         let mut acc: HashMap<u64, u64> = HashMap::new();
         let mut indices: Vec<usize> = Vec::with_capacity(max_d);
 
         for d in 1..=max_d {
             indices.clear();
             Self::enumerate_combinations(
-                word, d, 0, &mut indices, &self.offsets, self.k,
+                word, d, 0, &mut indices,
                 &mut |combo| {
                     if let Some(col) = self.basis_to_idx(combo) {
                         let e = acc.entry(col).or_insert(0u64);
@@ -157,7 +143,6 @@ impl MagnusBasis {
             );
         }
 
-        // Компактификация mod p.
         let p128 = p as u128;
         let mut out: Vec<(u64, u64)> = acc
             .into_iter()
@@ -168,14 +153,13 @@ impl MagnusBasis {
         out
     }
 
-    /// Рекурсивный обход сочетаний длины `d` из `word` в порядке возрастания индексов.
+    /// Рекурсивный обход сочетаний длины `d` из `word`
+    /// в порядке возрастания индексов.
     fn enumerate_combinations<F: FnMut(&[usize])>(
         word: &[usize],
         d: usize,
         start: usize,
         indices: &mut Vec<usize>,
-        _offsets: &[u64],
-        _k: usize,
         f: &mut F,
     ) {
         if indices.len() == d {
@@ -190,7 +174,7 @@ impl MagnusBasis {
         let max_i = m - remaining;
         for i in start..=max_i {
             indices.push(word[i]);
-            Self::enumerate_combinations(word, d, i + 1, indices, _offsets, _k, f);
+            Self::enumerate_combinations(word, d, i + 1, indices, f);
             indices.pop();
         }
     }
@@ -226,8 +210,8 @@ mod tests {
     #[test]
     fn test_basis_to_idx_out_of_range() {
         let b = MagnusBasis::new(3, 2);
-        assert!(b.basis_to_idx(&[3]).is_none());     // буква вне K
-        assert!(b.basis_to_idx(&[]).is_none());      // пустой
+        assert!(b.basis_to_idx(&[3]).is_none());       // буква вне K
+        assert!(b.basis_to_idx(&[]).is_none());        // пустой
         assert!(b.basis_to_idx(&[0, 0, 0]).is_none()); // степень > degree
     }
 
@@ -284,10 +268,9 @@ mod tests {
         let b = MagnusBasis::new(3, 4);
         let row = b.expand_word(&[0, 0, 0], 1_000_000_007);
         assert_eq!(row.len(), 3);
-        // Проверим коэффициенты
         let get = |idx: u64| row.iter().find(|&&(c, _)| c == idx).map(|&(_, v)| v);
         assert_eq!(get(0), Some(3));  // [0]
-        assert_eq!(get(3), Some(3));  // [0,0]
-        assert_eq!(get(12), Some(1)); // [0,0,0] — offsets[3]=3+9=12
+        assert_eq!(get(3), Some(3));  // [0,0]  — offsets[2]=3
+        assert_eq!(get(12), Some(1)); // [0,0,0] — offsets[3]=12
     }
 }
