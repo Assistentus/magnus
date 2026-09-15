@@ -78,8 +78,8 @@ impl<'a> FrCodeBuilder<'a> {
             }
 
             // Эмитим строки.
-            for gen in &current_gens {
-                for &(idx, coeff) in gen {
+            for polynomial in &current_gens {
+                for &(idx, coeff) in polynomial {
                     let c = (coeff as u128 % self.p as u128) as u64;
                     if c != 0 {
                         rows.push(current_row);
