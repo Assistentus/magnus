@@ -37,19 +37,20 @@ import pytest
 def test_free_group_verification():
     """
     ВЕРИФИКАЦИЯ 1: Свободная группа F_K (отношений нет, R = empty).
-    
-    Теоретический факт (Иванов и др., 2020): 
+
+    Теоретический факт (Иванов и др., 2020):
     Если R = empty, то идеал отношений r = 0.
     Ожидаемый результат: rank(Mc) == 0, dim_factor == dim_f.
     """
     K = 5
     magnus = MagnusAlgebra(K=K, degree=3)
-    
-    r_generators = []
-    c_matrix = FRCodeRegistry.build_rr_frf(magnus, r_generators)
+
+    # ← ИЗМЕНЕНО: пустой список relations вместо r_generators
+    relations = []
+    c_matrix = FRCodeRegistry.build_rr_frf(magnus, relations)
     solver = HomologySolver(p=10**9 + 7)
     res = solver.evaluate(c_matrix, dim_f=magnus.dim)
-    
+
     assert res['rank_c'] == 0, "Ранг свободной группы без отношений должен быть строго равен 0"
     assert res['dim_factor'] == magnus.dim, "Размерность фактора должна быть равна полной размерности свободного пространства dim(f)"
 
@@ -57,22 +58,22 @@ def test_free_group_verification():
 def test_cyclic_group_verification():
     """
     ВЕРИФИКАЦИЯ 2: Циклическая группа Z_n = < x | x^n >.
-    
-    Теоретический факт: 
-    K = 1 генератор, 1 отношение = x^n. 
+
+    Теоретический факт:
+    K = 1 генератор, 1 отношение = x^n.
     Ожидаемый результат: rank(Mc) == 1 над Z_p.
     """
     K = 1
     n = 5
     magnus = MagnusAlgebra(K=K, degree=3)
-    
-    rel = [0] * n
-    r_generators = [magnus.expand_word(rel)]
-    
-    c_matrix = FRCodeRegistry.build_code(magnus, r_generators, ["r"])
+
+    # ← ИЗМЕНЕНО: передаём relation как исходное слово, а не разложение
+    relations = [[0] * n]
+
+    c_matrix = FRCodeRegistry.build_code(magnus, relations, ["r"])
     solver = HomologySolver(p=10**9 + 7)
     res = solver.evaluate(c_matrix, dim_f=magnus.dim)
-    
+
     assert res['rank_c'] == 1, "Ранг матрицы идеала r для циклической группы Z_5 должен быть строго равен 1"
 
 
