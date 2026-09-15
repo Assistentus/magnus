@@ -95,7 +95,7 @@ This open-source package provides a pure Python implementation of the sparse Gau
 
 * **"Algebraic Prognostics via fr-Codes: Tracking Truncated Factor Dimensions in Turbofan Degradation"**
   * *Description:* The library was utilized to map multivariate sensor time series from the NASA CMAPSS dataset into finitely presented groups, tracking discrete drops in the truncated factor dimension to predict engine failure without neural networks.
-  * *Preprint:* [Research Square (DOI: 10.21203/rs.3.rs-10792595/v1)](https://doi.org/10.21203/rs.3.rs-10792595/v1)
+  * *Preprint:* [Research Square](https://doi.org/10.21203/rs.3.rs-10792595/v1) · `10.21203/rs.3.rs-10792595/v1`
 
 *(If you use `magnus` in your research or publications, feel free to open a PR to add your paper to this list!)*
 
@@ -104,7 +104,7 @@ This project is licensed under the **GNU Affero General Public License v3**.
 
 ## Citation
 
-[svg](https://github.com/Assistentus/magnus#citation)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22764569.svg)](https://doi.org/10.5281/zenodo.22764569)
 
 If you use Magnus in scientific work, please cite:
 
