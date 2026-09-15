@@ -24,168 +24,128 @@ pub fn compute_rank_csr(
     _n_cols: usize,
     p: u64,
 ) -> u64 {
+    use std::collections::HashMap;
+
     if indptr.len() < 2 {
         return 0;
     }
     let n_rows = indptr.len() - 1;
 
+    // Читаем строки как Vec<(col, val)>, отсортированные по col.
     let mut rows: Vec<Vec<(usize, u64)>> = Vec::with_capacity(n_rows);
     for i in 0..n_rows {
         let start = indptr[i] as usize;
         let end = indptr[i + 1] as usize;
-        if start >= end {
-            continue;
-        }
+        if start >= end { continue; }
         let mut row: Vec<(usize, u64)> = Vec::with_capacity(end - start);
         for j in start..end {
-            let val = (data[j] as u64) % p;
-            if val != 0 {
-                row.push((indices[j] as usize, val));
+            let c = indices[j] as usize;
+            let v = (data[j] as u64) % p;
+            if v != 0 {
+                row.push((c, v));
             }
         }
         if !row.is_empty() {
             row.sort_unstable_by_key(|&(c, _)| c);
-            rows.push(row);
-        }
-    }
-
-    if rows.is_empty() {
-        return 0;
-    }
-
-    rows.sort_unstable_by_key(|r| r.len());
-
-    let mut rank: u64 = 0;
-    let mut pivot_cols: std::collections::HashSet<usize> = std::collections::HashSet::new();
-    let mut active_start = 0usize;
-
-    while active_start < rows.len() {
-        // Ищем строку с минимальной длиной среди активных.
-        let mut best_idx = active_start;
-        let mut min_len = rows[active_start].len();
-        for i in (active_start + 1)..rows.len() {
-            let l = rows[i].len();
-            if l < min_len {
-                min_len = l;
-                best_idx = i;
-                if min_len == 0 {
-                    break;
+            // Схлопываем дубликаты (на всякий случай)
+            let mut compacted: Vec<(usize, u64)> = Vec::with_capacity(row.len());
+            for (c, v) in row {
+                if let Some(last) = compacted.last_mut() {
+                    if last.0 == c {
+                        last.1 = ((last.1 as u128 + v as u128) % p as u128) as u64;
+                        if last.1 == 0 {
+                            compacted.pop();
+                        }
+                        continue;
+                    }
                 }
+                compacted.push((c, v));
+            }
+            if !compacted.is_empty() {
+                rows.push(compacted);
             }
         }
+    }
 
-        if min_len == 0 {
-            active_start += 1;
-            continue;
-        }
+    if rows.is_empty() { return 0; }
 
-        rows.swap(active_start, best_idx);
-        let pivot_row = std::mem::take(&mut rows[active_start]);
+    // Пивоты: col -> (pivot_row_index, pivot_val, inv_pivot)
+    // Но проще: col -> нормализованная строка (Vec<(col, val)>).
+    let mut pivot_map: HashMap<usize, Vec<(usize, u64)>> = HashMap::new();
+    let mut rank: u64 = 0;
+    let p128 = p as u128;
 
-        // Ищем ведущий столбец.
-        let mut pivot_c: Option<usize> = None;
-        for &(c, _) in &pivot_row {
-            if !pivot_cols.contains(&c) {
-                pivot_c = Some(c);
+    for row in rows {
+        let mut current = row;
+
+        loop {
+            if current.is_empty() { break; }
+
+            // Ведущий столбец — минимальный в текущей строке.
+            let (pivot_c, pivot_v) = current[0];
+
+            if let Some(pr) = pivot_map.get(&pivot_c) {
+                // Исключаем pivot_c, вычитая factor * pr.
+                let pr_pivot_v = pr.iter().find(|&&(c, _)| c == pivot_c).unwrap().1;
+                let inv = mod_pow(pr_pivot_v, p - 2, p);
+                let factor = (pivot_v as u128 * inv as u128 % p128) as u64;
+
+                // Слияние current и pr с вычитанием.
+                let mut new_row: Vec<(usize, u64)> = Vec::with_capacity(current.len() + pr.len());
+                let mut i = 0;
+                let mut j = 0;
+                while i < current.len() || j < pr.len() {
+                    let (c, v) = if i >= current.len() {
+                        let (pc, pv) = pr[j];
+                        j += 1;
+                        if pc == pivot_c { continue; }
+                        let sub = (factor as u128 * pv as u128 % p128) as u64;
+                        let nv = (p128 - sub as u128) as u64 % p128;
+                        if nv == 0 { continue; }
+                        (pc, nv as u64)
+                    } else if j >= pr.len() {
+                        let (cc, cv) = current[i];
+                        i += 1;
+                        if cc == pivot_c { continue; }
+                        (cc, cv)
+                    } else {
+                        let (cc, cv) = current[i];
+                        let (pc, pv) = pr[j];
+                        if cc < pc {
+                            i += 1;
+                            if cc == pivot_c { continue; }
+                            (cc, cv)
+                        } else if cc > pc {
+                            j += 1;
+                            if pc == pivot_c { continue; }
+                            let sub = (factor as u128 * pv as u128 % p128) as u64;
+                            let nv = (p128 - sub as u128) as u64 % p128;
+                            if nv == 0 { continue; }
+                            (pc, nv as u64)
+                        } else {
+                            i += 1;
+                            j += 1;
+                            if cc == pivot_c { continue; }
+                            let sub = (factor as u128 * pv as u128 % p128) as u64;
+                            let nv = ((cv as u128 + p128 - sub as u128) % p128) as u64;
+                            if nv == 0 { continue; }
+                            (cc, nv)
+                        }
+                    };
+                    new_row.push((c, v));
+                }
+                current = new_row;
+            } else {
+                // Новый пивот.
+                let inv = mod_pow(pivot_v, p - 2, p);
+                let normalized: Vec<(usize, u64)> = current.iter()
+                    .map(|&(c, v)| (c, (v as u128 * inv as u128 % p128) as u64))
+                    .collect();
+                pivot_map.insert(pivot_c, normalized);
+                rank += 1;
                 break;
             }
         }
-
-        let pivot_c = match pivot_c {
-            Some(c) => c,
-            None => {
-                active_start += 1;
-                continue;
-            }
-        };
-
-        pivot_cols.insert(pivot_c);
-        rank += 1;
-
-        let pivot_val = pivot_row
-            .iter()
-            .find(|&&(c, _)| c == pivot_c)
-            .unwrap()
-            .1;
-        let inv_pivot = mod_pow(pivot_val, p - 2, p);
-
-        let p128 = p as u128;
-
-        // Исключаем столбец pivot_c из остальных активных строк.
-        // Вместо peekable() используем явные индексы.
-        for i in (active_start + 1)..rows.len() {
-            if rows[i].is_empty() {
-                continue;
-            }
-            let factor = match rows[i].binary_search_by_key(&pivot_c, |&(c, _)| c) {
-                Ok(idx) => (rows[i][idx].1 as u128 * inv_pivot as u128 % p128) as u64,
-                Err(_) => continue,
-            };
-
-            let old_row = std::mem::take(&mut rows[i]);
-            let mut new_row: Vec<(usize, u64)> =
-                Vec::with_capacity(old_row.len() + pivot_row.len());
-
-            let mut a = 0usize; // указатель по old_row
-            let mut b = 0usize; // указатель по pivot_row
-
-            while a < old_row.len() || b < pivot_row.len() {
-                let (col, val) = if a >= old_row.len() {
-                    // Остались только элементы pivot_row.
-                    let (cp, vp) = pivot_row[b];
-                    b += 1;
-                    if cp == pivot_c {
-                        continue;
-                    }
-                    let nv = (p128 - (factor as u128 * vp as u128) % p128) % p128;
-                    (cp, nv as u64)
-                } else if b >= pivot_row.len() {
-                    // Остались только элементы old_row.
-                    let (ci, vi) = old_row[a];
-                    a += 1;
-                    if ci == pivot_c {
-                        continue;
-                    }
-                    (ci, vi)
-                } else {
-                    // Оба указателя в диапазоне.
-                    let (ci, vi) = old_row[a];
-                    let (cp, vp) = pivot_row[b];
-
-                    if ci < cp {
-                        a += 1;
-                        if ci == pivot_c {
-                            continue;
-                        }
-                        (ci, vi)
-                    } else if ci > cp {
-                        b += 1;
-                        if cp == pivot_c {
-                            continue;
-                        }
-                        let nv = (p128 - (factor as u128 * vp as u128) % p128) % p128;
-                        (cp, nv as u64)
-                    } else {
-                        // ci == cp
-                        a += 1;
-                        b += 1;
-                        if ci == pivot_c {
-                            continue;
-                        }
-                        let nv = ((vi as u128 + p128
-                            - (factor as u128 * vp as u128) % p128) % p128)
-                            as u64;
-                        (ci, nv)
-                    }
-                };
-
-                if val != 0 {
-                    new_row.push((col, val));
-                }
-            }
-            rows[i] = new_row;
-        }
-        active_start += 1;
     }
 
     rank
