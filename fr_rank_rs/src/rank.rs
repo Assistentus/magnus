@@ -64,6 +64,7 @@ pub fn compute_rank_csr(
     let mut active_start = 0usize;
 
     while active_start < rows.len() {
+        // Ищем строку с минимальной длиной среди активных.
         let mut best_idx = active_start;
         let mut min_len = rows[active_start].len();
         for i in (active_start + 1)..rows.len() {
@@ -85,6 +86,7 @@ pub fn compute_rank_csr(
         rows.swap(active_start, best_idx);
         let pivot_row = std::mem::take(&mut rows[active_start]);
 
+        // Ищем ведущий столбец.
         let mut pivot_c: Option<usize> = None;
         for &(c, _) in &pivot_row {
             if !pivot_cols.contains(&c) {
@@ -112,6 +114,8 @@ pub fn compute_rank_csr(
         let inv_pivot = mod_pow(pivot_val, p - 2, p);
 
         let p128 = p as u128;
+
+        // Исключаем столбец pivot_c из остальных активных строк.
         for i in (active_start + 1)..rows.len() {
             if rows[i].is_empty() {
                 continue;
@@ -121,14 +125,17 @@ pub fn compute_rank_csr(
                 Err(_) => continue,
             };
 
+            // Слияние двух отсортированных по col массивов.
+            // Берём из старой строки rows[i] и вычитаем factor * pivot_row.
             let mut new_row: Vec<(usize, u64)> =
                 Vec::with_capacity(rows[i].len() + pivot_row.len());
+
             let mut it_i = rows[i].iter().peekable();
             let mut it_p = pivot_row.iter().peekable();
 
             while it_i.peek().is_some() || it_p.peek().is_some() {
-                match (it_i.peek(), it_p.peek()) {
-                    (Some(&(ci, vi)), Some(&(cp, vp))) => {
+                match (it_i.peek().copied(), it_p.peek().copied()) {
+                    (Some((ci, vi)), Some((cp, vp))) => {
                         if ci < cp {
                             new_row.push((ci, vi));
                             it_i.next();
@@ -143,6 +150,7 @@ pub fn compute_rank_csr(
                             }
                             it_p.next();
                         } else {
+                            // ci == cp
                             if ci != pivot_c {
                                 let nv = ((vi as u128 + p128
                                     - (factor as u128 * vp as u128) % p128)
@@ -155,11 +163,11 @@ pub fn compute_rank_csr(
                             it_p.next();
                         }
                     }
-                    (Some(&(ci, vi)), None) => {
+                    (Some((ci, vi)), None) => {
                         new_row.push((ci, vi));
                         it_i.next();
                     }
-                    (None, Some(&(cp, vp))) => {
+                    (None, Some((cp, vp))) => {
                         if cp != pivot_c {
                             let nv = (p128
                                 - (factor as u128 * vp as u128) % p128)
@@ -196,7 +204,10 @@ mod tests {
         let indptr = vec![0i64, 1, 2, 3];
         let indices = vec![0i64, 1, 2];
         let data = vec![1i64, 1, 1];
-        assert_eq!(compute_rank_csr(&indptr, &indices, &data, 3, 3, 1_000_000_007), 3);
+        assert_eq!(
+            compute_rank_csr(&indptr, &indices, &data, 3, 3, 1_000_000_007),
+            3
+        );
     }
 
     #[test]
@@ -204,7 +215,10 @@ mod tests {
         let indptr = vec![0i64, 2, 4];
         let indices = vec![0i64, 1, 0, 1];
         let data = vec![1i64, 1, 1, 1];
-        assert_eq!(compute_rank_csr(&indptr, &indices, &data, 2, 2, 1_000_000_007), 1);
+        assert_eq!(
+            compute_rank_csr(&indptr, &indices, &data, 2, 2, 1_000_000_007),
+            1
+        );
     }
 
     #[test]
@@ -212,6 +226,23 @@ mod tests {
         let indptr = vec![0i64, 0, 1];
         let indices = vec![0i64];
         let data = vec![1i64];
-        assert_eq!(compute_rank_csr(&indptr, &indices, &data, 2, 2, 1_000_000_007), 1);
+        assert_eq!(
+            compute_rank_csr(&indptr, &indices, &data, 2, 2, 1_000_000_007),
+            1
+        );
+    }
+
+    #[test]
+    fn test_two_independent_rows() {
+        // [1, 1]
+        // [1, 2]
+        // ранг 2
+        let indptr = vec![0i64, 2, 4];
+        let indices = vec![0i64, 1, 0, 1];
+        let data = vec![1i64, 1, 1, 2];
+        assert_eq!(
+            compute_rank_csr(&indptr, &indices, &data, 2, 2, 1_000_000_007),
+            2
+        );
     }
 }
