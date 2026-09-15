@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# tests/test_dictionary_coverage.py
 
 import sys
 from pathlib import Path
@@ -14,7 +15,7 @@ for d in [str(root_dir), str(parent_dir)]:
     if d not in sys.path:
         sys.path.insert(0, d)
 
-# 2. Универсальный каскад импортов 
+# 2. Универсальный каскад импортов
 try:
     from magnus import MagnusAlgebra, FRCodeRegistry, HomologySolver
 except ModuleNotFoundError:
@@ -57,27 +58,28 @@ FULL_PAGE_22_DICTIONARY = [
     ("rrf + rfr + frr", ["rrf", "rfr", "frr"])
 ]
 
+
 @pytest.mark.parametrize("code_name, monomials", FULL_PAGE_22_DICTIONARY)
 def test_full_dictionary_coverage(code_name, monomials):
     """
     ЭКСПАНСИВНЫЙ ТЕСТ ПОКРЫТИЯ (SOFTWARE COVERAGE):
-    Проверяет, что универсальный парсер FRCodeRegistry.build_code 
+    Проверяет, что универсальный парсер FRCodeRegistry.build_code
     корректно обрабатывает абсолютно все 21 код из словаря на странице 22.
     """
     # Берем циклическую группу Z_2 = < x | x^2 = 1 >
     K = 1
     # Степень усечения d=4 (с запасом для кодов длины 3, таких как rrr)
     magnus = MagnusAlgebra(K=K, degree=4)
-    
-    rel = [0, 0]
-    r_generators = [magnus.expand_word(rel)]
-    
+
+    # ← ИЗМЕНЕНО: передаём relations (исходное слово), а не разложение
+    relations = [[0, 0]]
+
     # Пытаемся собрать матрицу для текущего кода из таблицы
-    c_matrix = FRCodeRegistry.build_code(magnus, r_generators, monomials)
-    
+    c_matrix = FRCodeRegistry.build_code(magnus, relations, monomials)
+
     solver = HomologySolver(p=10**9 + 7)
     res = solver.evaluate(c_matrix, dim_f=magnus.dim)
-    
+
     # Базовые инженерные проверки на то, что парсер не упал и выдал адекватные матрицы
     assert c_matrix.shape[1] == magnus.dim, f"[{code_name}] Ошибка размерности столбцов"
     assert res['rank_c'] >= 0, f"[{code_name}] Ранг не может быть отрицательным"
