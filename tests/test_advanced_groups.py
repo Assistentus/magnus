@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# tests/test_advanced_groups.py
 
 import sys
 from pathlib import Path
 import random
+import numpy as np
 
 # 1. Автоматическая настройка путей импорта (локально и в GitHub Actions CI/CD)
 current_dir = Path(__file__).resolve().parent
@@ -52,8 +52,6 @@ def test_dihedral_group_D4_non_commutative():
 
     relations = [rel_r4, rel_s2, rel_srsr]
 
-    # ← ИЗМЕНЕНО: убрано r_generators = [magnus.expand_word(rel) for rel in relations]
-
     solver = HomologySolver(p=10**9 + 7)
 
     # Считаем матрицу кода c1 = rr + frf + rff (Инвариант H2)
@@ -88,8 +86,6 @@ def test_random_sequence_invariant_stress():
             for _ in range(num_relations)
         ]
 
-        # ← ИЗМЕНЕНО: убрано r_generators = [magnus.expand_word(rel) for rel in relations]
-
         # c1 = rr + frf + rff
         c1_matrix = FRCodeRegistry.build_rr_frf_rff(magnus, relations)
         res1 = solver.evaluate(c1_matrix, dim_f=magnus.dim)
@@ -97,6 +93,50 @@ def test_random_sequence_invariant_stress():
         # c2 = rr + frf
         c2_matrix = FRCodeRegistry.build_rr_frf(magnus, relations)
         res2 = solver.evaluate(c2_matrix, dim_f=magnus.dim)
+
+        # ================= ДИАГНОСТИКА =================
+        print(f"\n   === Trial {trial+1} ДИАГНОСТИКА ===")
+        print(f"   relations ({len(relations)}): {relations}")
+        print(f"   c1 shape={c1_matrix.shape}, nnz={c1_matrix.nnz}")
+        print(f"   c2 shape={c2_matrix.shape}, nnz={c2_matrix.nnz}")
+
+        # Сравниваем множества строк
+        c1_rows = set()
+        for i in range(c1_matrix.shape[0]):
+            row = c1_matrix.getrow(i).toarray().tobytes()
+            c1_rows.add(row)
+
+        c2_rows = set()
+        c2_not_in_c1 = []
+        for i in range(c2_matrix.shape[0]):
+            row = c2_matrix.getrow(i).toarray().tobytes()
+            c2_rows.add(row)
+            if row not in c1_rows:
+                c2_not_in_c1.append(i)
+
+        print(f"   unique c1 rows: {len(c1_rows)}")
+        print(f"   unique c2 rows: {len(c2_rows)}")
+        print(f"   c2 rows NOT in c1: {len(c2_not_in_c1)}")
+
+        if c2_not_in_c1:
+            print(f"   >>> БАГ: {len(c2_not_in_c1)} строк c2 отсутствуют в c1")
+            for i in c2_not_in_c1[:3]:
+                row_dense = c2_matrix.getrow(i).toarray()[0]
+                nonzero = np.nonzero(row_dense)[0]
+                print(f"      row {i}: nnz={len(nonzero)}, first cols={nonzero[:10].tolist()}")
+
+        # Разложение по отдельным частям
+        for name, code in [("rr", ["rr"]), ("frf", ["frf"]),
+                            ("rff", ["rff"]),
+                            ("rr+frf", ["rr", "frf"])]:
+            m = FRCodeRegistry.build_code(magnus, relations, code)
+            r = solver.evaluate(m, dim_f=magnus.dim)
+            print(f"   {name:10s}: rank={r['rank_c']:5d}, "
+                  f"dim_factor={r['dim_factor']:5d}, "
+                  f"shape={m.shape}, nnz={m.nnz}")
+
+        print(f"   rank(c1)={res1['rank_c']}, rank(c2)={res2['rank_c']}")
+        # ================= КОНЕЦ ДИАГНОСТИКИ =================
 
         print(f"\n   * [Trial {trial+1}] dim(f/c1) = {res1['dim_factor']} | dim(f/c2) = {res2['dim_factor']}")
 
