@@ -84,8 +84,8 @@ pub fn select_generators(
             }
         }
 
-        let (best_cand, best_delta) = match best {
-            Some(b) if b.1 > 0 => b,
+        let best_cand = match best {
+            Some(b) if b.1 > 0 => b.0,
             _ => break,
         };
 
