@@ -18,8 +18,7 @@ pub struct MagnusBasis {
     degree: usize,
     /// `offsets[d]` — начало диапазона индексов степени `d`.
     /// Длина `degree + 1`, `offsets[0] = 0`.
-    /// `pub(crate)` — нужно для `fr_code.rs`, который обращается
-    /// к этому полю из другого модуля того же крейта.
+    /// `pub(crate)` — нужно для `fr_code.rs`.
     pub(crate) offsets: Vec<u64>,
     /// Полная размерность: сумма `K^d` по `d=1..=degree`.
     dim: u64,
@@ -116,12 +115,18 @@ impl MagnusBasis {
     /// `d ∈ [1, min(degree, len)]` берётся моном степени `d`
     /// с коэффициентом 1. Если одинаковые мономы встречаются
     /// несколько раз — коэффициенты складываются mod p.
+    ///
+    /// ВАЖНО: если слово содержит букву вне `[0, K)`, возвращается
+    /// пустой вектор. Это нужно для greedy-отбора, где алфавит
+    /// растёт итеративно, и relation может ссылаться на ещё не
+    /// выбранные буквы.
     pub fn expand_word(&self, word: &[usize], p: u64) -> Vec<(u64, u64)> {
         if word.is_empty() {
             return Vec::new();
         }
-        for &w in word {
-            assert!(w < self.k, "буква {} вне алфавита K={}", w, self.k);
+        // Буквы вне [0, K) → пустой вектор (не паникуем).
+        if word.iter().any(|&w| w >= self.k) {
+            return Vec::new();
         }
 
         let m = word.len();
@@ -164,6 +169,10 @@ impl MagnusBasis {
     ) {
         if indices.len() == d {
             f(indices);
+            return;
+        }
+        // Защита от underflow: если indices уже длиннее d — выходим.
+        if indices.len() > d {
             return;
         }
         let remaining = d - indices.len();
@@ -272,5 +281,21 @@ mod tests {
         assert_eq!(get(0), Some(3));  // [0]
         assert_eq!(get(3), Some(3));  // [0,0]  — offsets[2]=3
         assert_eq!(get(12), Some(1)); // [0,0,0] — offsets[3]=12
+    }
+
+    #[test]
+    fn test_expand_word_out_of_alphabet() {
+        // Слово содержит букву вне [0, K) — должен вернуться пустой вектор,
+        // а не паника. Это критично для greedy-отбора.
+        let b = MagnusBasis::new(3, 4);
+        let row = b.expand_word(&[0, 5, 1], 1_000_000_007);
+        assert!(row.is_empty(), "Ожидался пустой вектор, получено {:?}", row);
+    }
+
+    #[test]
+    fn test_expand_word_all_out_of_alphabet() {
+        let b = MagnusBasis::new(2, 3);
+        let row = b.expand_word(&[10, 20, 30], 1_000_000_007);
+        assert!(row.is_empty());
     }
 }
