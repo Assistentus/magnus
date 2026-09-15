@@ -2,26 +2,18 @@
 
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-use numpy::PyReadonlyArray1;
+use numpy::{PyArray1, PyReadonlyArray1};
 
+pub mod batch;
+pub mod rank;
 pub mod streaming;
 
 use streaming::StreamingProcessor;
 
 
-fn mod_pow(mut base: u64, mut exp: u64, modulus: u64) -> u64 {
-    let mut res = 1;
-    base %= modulus;
-    while exp > 0 {
-        if exp % 2 == 1 {
-            res = ((res as u128 * base as u128) % modulus as u128) as u64;
-        }
-        exp /= 2;
-        base = ((base as u128 * base as u128) % modulus as u128) as u64;
-    }
-    res
-}
-
+// ================================================================
+// Ранг разреженной матрицы над Z_p (тонкая обёртка над rank.rs)
+// ================================================================
 
 #[pyfunction]
 fn compute_rank_zp_sparse<'py>(
@@ -29,160 +21,88 @@ fn compute_rank_zp_sparse<'py>(
     indptr: PyReadonlyArray1<'py, i64>,
     indices: PyReadonlyArray1<'py, i64>,
     data: PyReadonlyArray1<'py, i64>,
-    _n_cols: usize,
+    n_cols: usize,
     p: u64,
 ) -> PyResult<usize> {
-    let indptr = indptr.as_slice()?;
-    let indices = indices.as_slice()?;
-    let data = data.as_slice()?;
-    let n_rows = indptr.len() - 1;
+    let indptr_s = indptr.as_slice()?;
+    let indices_s = indices.as_slice()?;
+    let data_s = data.as_slice()?;
 
-    let mut rows: Vec<Vec<(usize, u64)>> = Vec::with_capacity(n_rows);
+    let n_rows = if indptr_s.is_empty() {
+        0
+    } else {
+        indptr_s.len() - 1
+    };
 
-    for i in 0..n_rows {
-        let start = indptr[i] as usize;
-        let end = indptr[i + 1] as usize;
-        if start < end {
-            let mut row = Vec::with_capacity(end - start);
-            for j in start..end {
-                let val = (data[j] as u64) % p;
-                if val != 0 {
-                    row.push((indices[j] as usize, val));
-                }
-            }
-            if !row.is_empty() {
-                row.sort_unstable_by_key(|&(c, _)| c);
-                rows.push(row);
-            }
-        }
-    }
+    Ok(rank::compute_rank_csr(
+        indptr_s, indices_s, data_s, n_rows, n_cols, p,
+    ) as usize)
+}
 
-    if rows.is_empty() {
-        return Ok(0);
-    }
 
-    rows.sort_unstable_by_key(|r| r.len());
+// ================================================================
+// Batch: Magnus-алгебра и fr-коды
+// ================================================================
 
-    let mut rank = 0;
-    let mut pivot_cols = std::collections::HashSet::new();
-    let mut active_start = 0;
+#[pyfunction]
+fn magnus_expand_word(
+    word: Vec<usize>,
+    k: usize,
+    degree: usize,
+    p: u64,
+) -> Vec<(u64, u64)> {
+    let basis = batch::magnus_algebra::MagnusBasis::new(k, degree);
+    basis.expand_word(&word, p)
+}
 
-    while active_start < rows.len() {
-        let mut best_idx = active_start;
-        let mut min_len = rows[active_start].len();
 
-        if min_len > 1 {
-            for i in (active_start + 1)..rows.len() {
-                let l = rows[i].len();
-                if l < min_len {
-                    min_len = l;
-                    best_idx = i;
-                    if min_len <= 1 {
-                        break;
-                    }
-                }
-            }
-        }
+#[pyfunction]
+fn build_fr_code_csr<'py>(
+    py: Python<'py>,
+    relations: Vec<Vec<usize>>,
+    code_parts: Vec<String>,
+    k: usize,
+    degree: usize,
+    p: u64,
+) -> PyResult<(
+    Bound<'py, PyArray1<i64>>,
+    Bound<'py, PyArray1<i64>>,
+    Bound<'py, PyArray1<i64>>,
+    usize,
+    usize,
+)> {
+    let basis = batch::magnus_algebra::MagnusBasis::new(k, degree);
+    let builder = batch::fr_code::FrCodeBuilder::new(&basis, p);
+    let parts: Vec<&str> = code_parts.iter().map(|s| s.as_str()).collect();
 
-        if min_len == 0 {
-            active_start += 1;
-            continue;
-        }
+    let (indptr, indices, data, n_rows, n_cols) = builder
+        .build_code(&relations, &parts)
+        .map_err(pyo3::exceptions::PyValueError::new_err)?;
 
-        rows.swap(active_start, best_idx);
+    Ok((
+        PyArray1::from_vec_bound(py, indptr),
+        PyArray1::from_vec_bound(py, indices),
+        PyArray1::from_vec_bound(py, data),
+        n_rows,
+        n_cols,
+    ))
+}
 
-        let pivot_row = std::mem::take(&mut rows[active_start]);
 
-        let mut pivot_c = None;
-        for &(c, _) in &pivot_row {
-            if !pivot_cols.contains(&c) {
-                pivot_c = Some(c);
-                break;
-            }
-        }
-
-        let pivot_c = match pivot_c {
-            Some(c) => c,
-            None => {
-                active_start += 1;
-                continue;
-            }
-        };
-
-        pivot_cols.insert(pivot_c);
-        rank += 1;
-
-        let pivot_val = pivot_row.iter().find(|&&(c, _)| c == pivot_c).unwrap().1;
-        let inv_pivot = mod_pow(pivot_val, p - 2, p);
-
-        for i in (active_start + 1)..rows.len() {
-            if rows[i].is_empty() {
-                continue;
-            }
-
-            let factor = match rows[i].binary_search_by_key(&pivot_c, |&(c, _)| c) {
-                Ok(idx) => (rows[i][idx].1 * inv_pivot) % p,
-                Err(_) => continue,
-            };
-
-            let mut new_row = Vec::with_capacity(rows[i].len() + pivot_row.len());
-            let mut iter_i = rows[i].iter().peekable();
-            let mut iter_p = pivot_row.iter().peekable();
-
-            while iter_i.peek().is_some() || iter_p.peek().is_some() {
-                match (iter_i.peek(), iter_p.peek()) {
-                    (Some(&&(c_i, v_i)), Some(&&(c_p, v_p))) => {
-                        if c_i < c_p {
-                            new_row.push((c_i, v_i));
-                            iter_i.next();
-                        } else if c_i > c_p {
-                            if c_p != pivot_c {
-                                let new_val = (p - (factor * v_p) % p) % p;
-                                if new_val != 0 {
-                                    new_row.push((c_p, new_val));
-                                }
-                            }
-                            iter_p.next();
-                        } else {
-                            if c_i != pivot_c {
-                                let new_val = (v_i + p - (factor * v_p) % p) % p;
-                                if new_val != 0 {
-                                    new_row.push((c_i, new_val));
-                                }
-                            }
-                            iter_i.next();
-                            iter_p.next();
-                        }
-                    }
-                    (Some(&&(c_i, v_i)), None) => {
-                        new_row.push((c_i, v_i));
-                        iter_i.next();
-                    }
-                    (None, Some(&&(c_p, v_p))) => {
-                        if c_p != pivot_c {
-                            let new_val = (p - (factor * v_p) % p) % p;
-                            if new_val != 0 {
-                                new_row.push((c_p, new_val));
-                            }
-                        }
-                        iter_p.next();
-                    }
-                    (None, None) => break,
-                }
-            }
-            rows[i] = new_row;
-        }
-        active_start += 1;
-
-        if active_start % 100 == 0 {
-            _py.check_signals()?;
-            rows.drain(..active_start);
-            active_start = 0;
-            rows.sort_unstable_by_key(|r| r.len());
-        }
-    }
-
-    Ok(rank)
+#[pyfunction]
+#[pyo3(signature = (candidates, target_k, degree, code_parts, p, initial_selected=3))]
+fn select_homological_generators(
+    candidates: Vec<Vec<Vec<usize>>>,
+    target_k: usize,
+    degree: usize,
+    code_parts: Vec<String>,
+    p: u64,
+    initial_selected: usize,
+) -> Vec<usize> {
+    let parts: Vec<&str> = code_parts.iter().map(|s| s.as_str()).collect();
+    batch::greedy::select_generators(
+        &candidates, target_k, degree, &parts, p, initial_selected,
+    )
 }
 
 
@@ -483,9 +403,16 @@ impl StreamingMagnus {
 }
 
 
+// ================================================================
+// РЕГИСТРАЦИЯ МОДУЛЯ
+// ================================================================
+
 #[pymodule]
 fn fr_rank_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(compute_rank_zp_sparse, m)?)?;
+    m.add_function(wrap_pyfunction!(magnus_expand_word, m)?)?;
+    m.add_function(wrap_pyfunction!(build_fr_code_csr, m)?)?;
+    m.add_function(wrap_pyfunction!(select_homological_generators, m)?)?;
     m.add_class::<StreamingMagnus>()?;
     Ok(())
 }
